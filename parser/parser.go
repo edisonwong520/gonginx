@@ -2,9 +2,12 @@ package parser
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/edisonwong520/gonginx"
 	"github.com/edisonwong520/gonginx/parser/token"
@@ -142,12 +145,31 @@ func (p *Parser) followingTokenIs(t token.Type) bool {
 	return p.followingToken.Type == t
 }
 
+func panicTrace( ) string {
+	buf := new(bytes.Buffer)
+	for i := 1; ; i++ {
+		pc, file, line, ok := runtime.Caller(i)
+		if !ok {
+			break
+		}
+		fmt.Fprintf(buf, "%s:%d (0x%x)\n", file, line, pc)
+	}
+	return buf.String()
+}
+
 //Parse the gonginx.
-func (p *Parser) Parse() *gonginx.Config {
+func (p *Parser) Parse() (cfg *gonginx.Config, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprintf("%v. Panic stack detail:\n%v", r, panicTrace()))
+			return
+		}
+	}()
+
 	return &gonginx.Config{
 		FilePath: p.lexer.file, //TODO: set filepath here,
 		Block:    p.parseBlock(),
-	}
+	}, nil
 }
 
 //ParseBlock parse a block statement
@@ -259,7 +281,10 @@ func (p *Parser) parseInclude(directive *gonginx.Directive) *gonginx.Include {
 				panic(err)
 			}
 
-			config := parser.Parse()
+			config, err := parser.Parse()
+			if err != nil {
+				panic(err)
+			}
 			p.parsedIncludes[includePath] = config
 			include.Configs = append(include.Configs, config)
 		}
