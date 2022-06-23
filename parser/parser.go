@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/edisonwong520/gonginx"
 	"github.com/edisonwong520/gonginx/parser/token"
@@ -31,7 +32,6 @@ type Parser struct {
 	statementParsers  map[string]func() gonginx.IDirective
 	blockWrappers     map[string]func(*gonginx.Directive) gonginx.IDirective
 	directiveWrappers map[string]func(*gonginx.Directive) gonginx.IDirective
-	ErrorMsg          string
 }
 
 func WithSameOptions(p *Parser) Option {
@@ -118,6 +118,9 @@ func NewParserFromLexer(lexer *lexer, opts ...Option) *Parser {
 		"upstream": func(directive *gonginx.Directive) gonginx.IDirective {
 			return parser.wrapUpstream(directive)
 		},
+		"by_lua_block": func(directive *gonginx.Directive) gonginx.IDirective {
+			return parser.wrapLuaBlock(directive)
+		},
 	}
 
 	parser.directiveWrappers = map[string]func(*gonginx.Directive) gonginx.IDirective{
@@ -145,7 +148,7 @@ func (p *Parser) followingTokenIs(t token.Type) bool {
 	return p.followingToken.Type == t
 }
 
-func panicTrace( ) string {
+func panicTrace() string {
 	buf := new(bytes.Buffer)
 	for i := 1; ; i++ {
 		pc, file, line, ok := runtime.Caller(i)
@@ -160,7 +163,7 @@ func panicTrace( ) string {
 //Parse the gonginx.
 func (p *Parser) Parse() (cfg *gonginx.Config, err error) {
 	defer func() {
-		if r := recover(); r != nil {
+		if r := recover(); r != nil { //TODO remove trace info in err
 			err = errors.New(fmt.Sprintf("%v. Panic stack detail:\n%v", r, panicTrace()))
 			return
 		}
@@ -228,7 +231,11 @@ func (p *Parser) parseStatement() gonginx.IDirective {
 	//ok, it does not end with a semicolon but a block starts, we will convert that block if we have a converter
 	if p.curTokenIs(token.BlockStart) {
 		d.Block = p.parseBlock()
-		if bw, ok := p.blockWrappers[d.Name]; ok {
+		fakeName := d.Name
+		if strings.HasSuffix(d.Name, "by_lua_block") {
+			fakeName = "by_lua_block"
+		}
+		if bw, ok := p.blockWrappers[fakeName]; ok {
 			return bw(d)
 		}
 		return d
@@ -319,6 +326,11 @@ func (p *Parser) wrapLocation(directive *gonginx.Directive) *gonginx.Location {
 
 func (p *Parser) wrapServer(directive *gonginx.Directive) *gonginx.Server {
 	s, _ := gonginx.NewServer(directive)
+	return s
+}
+
+func (p *Parser) wrapLuaBlock(directive *gonginx.Directive) *gonginx.LuaBlock {
+	s, _ := gonginx.NewLuaBlock(directive)
 	return s
 }
 

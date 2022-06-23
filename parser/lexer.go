@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"log"
 	"strings"
 
 	"github.com/edisonwong520/gonginx/parser/token"
@@ -52,42 +51,33 @@ func (s *lexer) all() token.Tokens {
 	return tokens
 }
 
-func (s *lexer) scanLuaCode() (t token.Token) {
-	// used to save the real line and column
-	ret := s.NewToken(token.Keyword)
+func (s *lexer) scanLuaCode() {
 	stack := make([]rune, 0, 50)
-	code := make([]rune, 0, 100)
-
+	var sl []string
 	for {
 		ch := s.read()
+		sl = append(sl, string(ch))
+		//log.Println(sl)
 		if ch == rune(token.EOF) {
+			//log.Println(stack)
 			panic("unexpected end of file while scanning a string, maybe an unclosed lua code?")
 		}
-		log.Printf(string(ch))
 		if ch == '}' {
 			if len(stack) == 0 {
-				// the end of block
-				_ = s.reader.UnreadRune()
-				return ret.Lit(string(code))
+				panic("cannot find '{' match the '}'")
 			}
-			// maybe it's lua table end, pop stack
-			if stack[len(stack)-1] == '{' {
-				stack = stack[0 : len(stack)-1]
+			stack = stack[:len(stack)-1]
+			if len(stack) == 0 { // real end of lua block
+				return
 			}
 		} else if ch == '{' {
-			// maybe it's lua table start, push stack
 			stack = append(stack, ch)
 		}
-		code = append(code, ch)
 	}
 	return
 }
 
 func (s *lexer) getNextToken() token.Token {
-	if s.inLuaBlock {
-		s.inLuaBlock = false
-		return s.scanLuaCode()
-	}
 reToken:
 	ch := s.peek()
 	switch {
@@ -99,8 +89,9 @@ reToken:
 	case ch == ';':
 		return s.NewToken(token.Semicolon).Lit(string(s.read()))
 	case ch == '{':
-		if s.Latest.Type == token.Keyword && strings.HasSuffix(s.Latest.Literal, "_by_lua_block") {
-			s.inLuaBlock = true
+		if s.Latest.Type == token.Keyword && strings.HasSuffix(s.Latest.Literal, "_by_lua_block") { // skip the lua block content
+			s.scanLuaCode()
+			goto reToken
 		}
 		return s.NewToken(token.BlockStart).Lit(string(s.read()))
 	case ch == '}':
@@ -116,7 +107,7 @@ reToken:
 	}
 }
 
-//Peek returns nexr rune without consuming it
+//Peek returns next rune without consuming it
 func (s *lexer) peek() rune {
 	r, _, _ := s.reader.ReadRune()
 	_ = s.reader.UnreadRune()

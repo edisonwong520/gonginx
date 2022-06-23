@@ -1,6 +1,7 @@
 package case_test
 
 import (
+	"encoding/json"
 	"github.com/edisonwong520/gonginx/parser"
 	"log"
 	"testing"
@@ -14,7 +15,7 @@ func TestNgxParse(t *testing.T) {
 }
 
 func parse() (err error) {
-	p , err := parser.NewParser("/Users/edison/GoProjects/src/process/workspace/nginx-public/sites/api.conf")
+	p , err := parser.NewParser("/Users/edison/gitdownload/keepgit/nginx_config/sites/api.conf")
 	if err != nil {
 		log.Printf("parse err:%v" , err.Error())
 		return
@@ -24,6 +25,11 @@ func parse() (err error) {
 	if err != nil {
 		return
 	}
-	log.Printf(cfg.FilePath)
+	log.Printf(PrintJson(cfg.GetDirectives()))
 	return
+}
+
+func PrintJson(it interface{})(s string){
+	b,_:=json.Marshal(it)
+	return string(b)
 }
