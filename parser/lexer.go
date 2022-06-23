@@ -15,8 +15,8 @@ type lexer struct {
 	file       string
 	line       int
 	column     int
-	Latest     token.Token
 	inLuaBlock bool
+	Latest     token.Token
 }
 
 //lex initializes a lexer from string conetnt
@@ -51,33 +51,11 @@ func (s *lexer) all() token.Tokens {
 	return tokens
 }
 
-func (s *lexer) scanLuaCode() {
-	stack := make([]rune, 0, 50)
-	var sl []string
-	for {
-		ch := s.read()
-		sl = append(sl, string(ch))
-		//log.Println(sl)
-		if ch == rune(token.EOF) {
-			//log.Println(stack)
-			panic("unexpected end of file while scanning a string, maybe an unclosed lua code?")
-		}
-		if ch == '}' {
-			if len(stack) == 0 {
-				panic("cannot find '{' match the '}'")
-			}
-			stack = stack[:len(stack)-1]
-			if len(stack) == 0 { // real end of lua block
-				return
-			}
-		} else if ch == '{' {
-			stack = append(stack, ch)
-		}
-	}
-	return
-}
-
 func (s *lexer) getNextToken() token.Token {
+	if s.inLuaBlock {
+		s.inLuaBlock = false
+		return s.scanLuaCode()
+	}
 reToken:
 	ch := s.peek()
 	switch {
@@ -89,9 +67,8 @@ reToken:
 	case ch == ';':
 		return s.NewToken(token.Semicolon).Lit(string(s.read()))
 	case ch == '{':
-		if s.Latest.Type == token.Keyword && strings.HasSuffix(s.Latest.Literal, "_by_lua_block") { // skip the lua block content
-			s.scanLuaCode()
-			goto reToken
+		if s.Latest.Type == token.Keyword && strings.HasSuffix(s.Latest.Literal, "_by_lua_block") {
+			s.inLuaBlock = true
 		}
 		return s.NewToken(token.BlockStart).Lit(string(s.read()))
 	case ch == '}':
@@ -107,7 +84,7 @@ reToken:
 	}
 }
 
-//Peek returns next rune without consuming it
+//Peek returns nexr rune without consuming it
 func (s *lexer) peek() rune {
 	r, _, _ := s.reader.ReadRune()
 	_ = s.reader.UnreadRune()
@@ -163,6 +140,44 @@ func (s *lexer) skipWhitespace() {
 
 func (s *lexer) scanComment() token.Token {
 	return s.NewToken(token.Comment).Lit(s.readUntil(isEndOfLine))
+}
+
+// now just abandon the lua code content
+// TODO: parse lua code
+func (s *lexer) scanLuaCode() token.Token {
+	// used to save the real line and column
+	stack := make([]rune, 0, 50)
+	code := make([]rune, 0, 100)
+	err := s.reader.UnreadRune()
+	if err != nil {
+		panic(err)
+	}
+	for {
+		ch := s.read()
+		if ch == rune(token.EOF) {
+			panic("unexpected end of file while scanning a string, maybe an unclosed lua code?")
+		}
+
+		if ch == '}' {
+			if len(stack) == 0 {
+				panic("cannot find the match '{' for the '}'")
+			}
+			if stack[len(stack)-1] == '{' {
+				stack = stack[:len(stack)-1]
+			}
+			if len(stack) == 0 {
+				err := s.reader.UnreadRune()
+				if err != nil {
+					panic(err)
+				}
+				return s.NewToken(token.BlockEnd).Lit(string(s.read()))
+			}
+		} else if ch == '{' {
+			// maybe it's lua table start, push stack
+			stack = append(stack, ch)
+		}
+		code = append(code, ch)
+	}
 }
 
 /**
