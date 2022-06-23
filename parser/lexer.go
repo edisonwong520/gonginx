@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/tufanbarisyildirim/gonginx/parser/token"
+	"github.com/edisonwong520/gonginx/parser/token"
 )
 
 //lexer is the main tokenizer

@@ -1,4 +1,4 @@
-module github.com/tufanbarisyildirim/gonginx
+module github.com/edisonwong520/gonginx
 
 go 1.14
 

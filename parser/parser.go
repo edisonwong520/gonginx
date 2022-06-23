@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tufanbarisyildirim/gonginx"
-	"github.com/tufanbarisyildirim/gonginx/parser/token"
+	"github.com/edisonwong520/gonginx"
+	"github.com/edisonwong520/gonginx/parser/token"
 )
 
 type Option func(*Parser)
@@ -28,6 +28,7 @@ type Parser struct {
 	statementParsers  map[string]func() gonginx.IDirective
 	blockWrappers     map[string]func(*gonginx.Directive) gonginx.IDirective
 	directiveWrappers map[string]func(*gonginx.Directive) gonginx.IDirective
+	ErrorMsg          string
 }
 
 func WithSameOptions(p *Parser) Option {
@@ -72,13 +73,14 @@ func NewStringParser(str string, opts ...Option) *Parser {
 }
 
 //NewParser create new parser
-func NewParser(filePath string, opts ...Option) (*Parser, error) {
+func NewParser(filePath string, opts ...Option) (pr *Parser, err error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 	l := newLexer(bufio.NewReader(f))
 	l.file = filePath
+
 	p := NewParserFromLexer(l, opts...)
 	return p, nil
 }

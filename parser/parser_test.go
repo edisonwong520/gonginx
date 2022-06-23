@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/tufanbarisyildirim/gonginx"
-	"github.com/tufanbarisyildirim/gonginx/parser/token"
+	"github.com/edisonwong520/gonginx"
+	"github.com/edisonwong520/gonginx/parser/token"
 	"gotest.tools/v3/assert"
 )
 
