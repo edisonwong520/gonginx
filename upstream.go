@@ -39,11 +39,11 @@ func (us *Upstream) GetDirectives() []IDirective {
 }
 
 func NewLuaBlock(directive IDirective) (u *LuaBlock, err error) {
-	u = &LuaBlock{Name: "lua_block"}//TODO set real name
+	u = &LuaBlock{Name: directive.GetName()}
 	return
 }
 
-//NewUpstream creaste new upstream from a directive
+//NewUpstream create new upstream from a directive
 func NewUpstream(directive IDirective) (*Upstream, error) {
 	parameters := directive.GetParameters()
 	us := &Upstream{

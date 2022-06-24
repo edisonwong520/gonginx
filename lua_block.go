@@ -5,7 +5,7 @@ type LuaBlock struct {
 }
 
 func (s *LuaBlock) GetName() string {
-	return "lua_block"
+	return s.Name
 }
 
 func (s *LuaBlock) GetParameters() (rsp []string) {

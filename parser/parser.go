@@ -164,6 +164,7 @@ func panicTrace() string {
 func (p *Parser) Parse() (cfg *gonginx.Config, err error) {
 	defer func() {
 		if r := recover(); r != nil { //TODO remove trace info in err
+
 			err = errors.New(fmt.Sprintf("%v. Panic stack detail:\n%v", r, panicTrace()))
 			return
 		}
